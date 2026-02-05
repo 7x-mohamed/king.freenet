@@ -26,19 +26,19 @@ C_STATUS_A=$C_GREEN
 C_STATUS_I=$C_GRAY
 C_ACCENT=$C_ORANGE
 
-DB_DIR="/etc/firewallfalcon"
+DB_DIR="/etc/kingfreenet"
 DB_FILE="$DB_DIR/users.db"
 INSTALL_FLAG_FILE="$DB_DIR/.install"
 BADVPN_SERVICE_FILE="/etc/systemd/system/badvpn.service"
 BADVPN_BUILD_DIR="/root/badvpn-build"
 HAPROXY_CONFIG="/etc/haproxy/haproxy.cfg"
 NGINX_CONFIG_FILE="/etc/nginx/sites-available/default"
-SSL_CERT_DIR="/etc/firewallfalcon/ssl"
-SSL_CERT_FILE="$SSL_CERT_DIR/firewallfalcon.pem"
+SSL_CERT_DIR="/etc/kingfreenet/ssl"
+SSL_CERT_FILE="$SSL_CERT_DIR/kingfreenet.pem"
 NGINX_PORTS_FILE="$DB_DIR/nginx_ports.conf"
 DNSTT_SERVICE_FILE="/etc/systemd/system/dnstt.service"
 DNSTT_BINARY="/usr/local/bin/dnstt-server"
-DNSTT_KEYS_DIR="/etc/firewallfalcon/dnstt"
+DNSTT_KEYS_DIR="/etc/kingfreenet/dnstt"
 DNSTT_CONFIG_FILE="$DB_DIR/dnstt_info.conf"
 DNS_INFO_FILE="$DB_DIR/dns_info.conf"
 UDP_CUSTOM_DIR="/root/udp"
@@ -47,8 +47,8 @@ SSH_BANNER_FILE="/etc/bannerssh"
 FALCONPROXY_SERVICE_FILE="/etc/systemd/system/falconproxy.service"
 FALCONPROXY_BINARY="/usr/local/bin/falconproxy"
 FALCONPROXY_CONFIG_FILE="$DB_DIR/falconproxy_config.conf"
-LIMITER_SCRIPT="/usr/local/bin/firewallfalcon-limiter.sh"
-LIMITER_SERVICE="/etc/systemd/system/firewallfalcon-limiter.service"
+LIMITER_SCRIPT="/usr/local/bin/kingfreenet-limiter.sh"
+LIMITER_SERVICE="/etc/systemd/system/kingfreenet-limiter.service"
 
 # --- ZiVPN Variables ---
 ZIVPN_DIR="/etc/zivpn"
@@ -84,7 +84,7 @@ check_environment() {
 }
 
 initial_setup() {
-    echo -e "${C_BLUE}⚙️ Initializing FirewallFalcon Manager setup...${C_RESET}"
+    echo -e "${C_BLUE}⚙️ Initializing kingfreenet Manager setup...${C_RESET}"
     check_environment
     
     mkdir -p "$DB_DIR"
@@ -196,7 +196,7 @@ setup_limiter_service() {
     # Updated logic: No logging, smart 120s lockout
     cat > "$LIMITER_SCRIPT" << 'EOF'
 #!/bin/bash
-DB_FILE="/etc/firewallfalcon/users.db"
+DB_FILE="/etc/kingfreenet/users.db"
 
 # Loop continuously with optimized sleep
 while true; do
@@ -255,7 +255,7 @@ EOF
 
     cat > "$LIMITER_SERVICE" << EOF
 [Unit]
-Description=FirewallFalcon Active User Limiter
+Description=kingfreenet Active User Limiter
 After=network.target
 
 [Service]
@@ -269,16 +269,16 @@ WantedBy=multi-user.target
 EOF
 
     # Force kill any old limiter process to prevent systemctl restart hanging
-    pkill -f "firewallfalcon-limiter" 2>/dev/null
+    pkill -f "kingfreenet-limiter" 2>/dev/null
 
-    if ! systemctl is-active --quiet firewallfalcon-limiter; then
+    if ! systemctl is-active --quiet kingfreenet-limiter; then
         systemctl daemon-reload
-        systemctl enable firewallfalcon-limiter &>/dev/null
-        systemctl start firewallfalcon-limiter --no-block &>/dev/null
+        systemctl enable kingfreenet-limiter &>/dev/null
+        systemctl start kingfreenet-limiter --no-block &>/dev/null
         
     else
         # Restart if already running to apply new logic
-        systemctl restart firewallfalcon-limiter --no-block &>/dev/null
+        systemctl restart kingfreenet-limiter --no-block &>/dev/null
         
     fi
 }
@@ -753,8 +753,8 @@ cleanup_expired() {
 backup_user_data() {
     clear; show_banner
     echo -e "${C_BOLD}${C_PURPLE}--- 💾 Backup User Data ---${C_RESET}"
-    read -p "👉 Enter path for backup file [/root/firewallfalcon_users.tar.gz]: " backup_path
-    backup_path=${backup_path:-/root/firewallfalcon_users.tar.gz}
+    read -p "👉 Enter path for backup file [/root/kingfreenet_users.tar.gz]: " backup_path
+    backup_path=${backup_path:-/root/kingfreenet_users.tar.gz}
     if [ ! -d "$DB_DIR" ] || [ ! -s "$DB_FILE" ]; then
         echo -e "\n${C_YELLOW}ℹ️ No user data found to back up.${C_RESET}"
         return
@@ -771,8 +771,8 @@ backup_user_data() {
 restore_user_data() {
     clear; show_banner
     echo -e "${C_BOLD}${C_PURPLE}--- 📥 Restore User Data ---${C_RESET}"
-    read -p "👉 Enter the full path to the user data backup file [/root/firewallfalcon_users.tar.gz]: " backup_path
-    backup_path=${backup_path:-/root/firewallfalcon_users.tar.gz}
+    read -p "👉 Enter the full path to the user data backup file [/root/kingfreenet_users.tar.gz]: " backup_path
+    backup_path=${backup_path:-/root/kingfreenet_users.tar.gz}
     if [ ! -f "$backup_path" ]; then
         echo -e "\n${C_RED}❌ ERROR: Backup file not found at '$backup_path'.${C_RESET}"
         return
@@ -790,7 +790,7 @@ restore_user_data() {
         rm -rf "$temp_dir"
         return
     fi
-    local restored_db_file="$temp_dir/firewallfalcon/users.db"
+    local restored_db_file="$temp_dir/kingfreenet/users.db"
     if [ ! -f "$restored_db_file" ]; then
         echo -e "\n${C_RED}❌ ERROR: users.db not found in the backup. Cannot restore user accounts.${C_RESET}"
         rm -rf "$temp_dir"
@@ -799,20 +799,20 @@ restore_user_data() {
     echo -e "${C_BLUE}⚙️ Overwriting current user database...${C_RESET}"
     mkdir -p "$DB_DIR"
     cp "$restored_db_file" "$DB_FILE"
-    if [ -d "$temp_dir/firewallfalcon/ssl" ]; then
-        cp -r "$temp_dir/firewallfalcon/ssl" "$DB_DIR/"
+    if [ -d "$temp_dir/kingfreenet/ssl" ]; then
+        cp -r "$temp_dir/kingfreenet/ssl" "$DB_DIR/"
     fi
-    if [ -d "$temp_dir/firewallfalcon/dnstt" ]; then
-        cp -r "$temp_dir/firewallfalcon/dnstt" "$DB_DIR/"
+    if [ -d "$temp_dir/kingfreenet/dnstt" ]; then
+        cp -r "$temp_dir/kingfreenet/dnstt" "$DB_DIR/"
     fi
-    if [ -f "$temp_dir/firewallfalcon/dns_info.conf" ]; then
-        cp "$temp_dir/firewallfalcon/dns_info.conf" "$DB_DIR/"
+    if [ -f "$temp_dir/kingfreenet/dns_info.conf" ]; then
+        cp "$temp_dir/kingfreenet/dns_info.conf" "$DB_DIR/"
     fi
-    if [ -f "$temp_dir/firewallfalcon/dnstt_info.conf" ]; then
-        cp "$temp_dir/firewallfalcon/dnstt_info.conf" "$DB_DIR/"
+    if [ -f "$temp_dir/kingfreenet/dnstt_info.conf" ]; then
+        cp "$temp_dir/kingfreenet/dnstt_info.conf" "$DB_DIR/"
     fi
-    if [ -f "$temp_dir/firewallfalcon/falconproxy_config.conf" ]; then
-        cp "$temp_dir/firewallfalcon/falconproxy_config.conf" "$DB_DIR/"
+    if [ -f "$temp_dir/kingfreenet/falconproxy_config.conf" ]; then
+        cp "$temp_dir/kingfreenet/falconproxy_config.conf" "$DB_DIR/"
     fi
     
     echo -e "${C_BLUE}⚙️ Re-synchronizing system accounts with the restored database...${C_RESET}"
@@ -837,7 +837,7 @@ _enable_banner_in_sshd_config() {
     echo -e "\n${C_BLUE}⚙️ Configuring sshd_config...${C_RESET}"
     sed -i.bak -E 's/^( *Banner *).*/#\1/' /etc/ssh/sshd_config
     if ! grep -q -E "^Banner $SSH_BANNER_FILE" /etc/ssh/sshd_config; then
-        echo -e "\n# FirewallFalcon SSH Banner\nBanner $SSH_BANNER_FILE" >> /etc/ssh/sshd_config
+        echo -e "\n# kingfreenet SSH Banner\nBanner $SSH_BANNER_FILE" >> /etc/ssh/sshd_config
     fi
     echo -e "${C_GREEN}✅ sshd_config updated.${C_RESET}"
 }
@@ -957,10 +957,10 @@ install_udp_custom() {
     arch=$(uname -m)
     local binary_url=""
     if [[ "$arch" == "x86_64" ]]; then
-        binary_url="https://github.com/firewallfalcons/FirewallFalcon-Manager/raw/main/udp/udp-custom-linux-amd64"
+        binary_url="https://github.com/kingfreenets/kingfreenet-Manager/raw/main/udp/udp-custom-linux-amd64"
         echo -e "${C_BLUE}ℹ️ Detected x86_64 (amd64) architecture.${C_RESET}"
     elif [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
-        binary_url="https://github.com/firewallfalcons/FirewallFalcon-Manager/raw/main/udp/udp-custom-linux-arm"
+        binary_url="https://github.com/kingfreenets/kingfreenet-Manager/raw/main/udp/udp-custom-linux-arm"
         echo -e "${C_BLUE}ℹ️ Detected ARM64 architecture.${C_RESET}"
     else
         echo -e "\n${C_RED}❌ Unsupported architecture: $arch. Cannot install udp-custom.${C_RESET}"
@@ -993,7 +993,7 @@ EOF
     echo -e "\n${C_GREEN}📝 Creating systemd service file...${C_RESET}"
     cat > "$UDP_CUSTOM_SERVICE_FILE" <<EOF
 [Unit]
-Description=UDP Custom by FirewallFalcon
+Description=UDP Custom by kingfreenet
 After=network.target
 
 [Service]
@@ -1141,7 +1141,7 @@ install_ssl_tunnel() {
         echo -e "\n${C_GREEN}🔐 Generating self-signed SSL certificate...${C_RESET}"
         openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
             -keyout "$SSL_CERT_FILE" -out "$SSL_CERT_FILE" \
-            -subj "/CN=@FIREWALLFALCON" \
+            -subj "/CN=@kingfreenet" \
             >/dev/null 2>&1 || { echo -e "${C_RED}❌ Failed to generate SSL certificate.${C_RESET}"; return; }
         echo -e "${C_GREEN}✅ Certificate created: ${C_YELLOW}$SSL_CERT_FILE${C_RESET}"
     fi
@@ -1526,7 +1526,7 @@ install_falcon_proxy() {
     fi
 
     echo -e "\n${C_BLUE}🌐 Fetching available versions from GitHub...${C_RESET}"
-    local releases_json=$(curl -s "https://api.github.com/repos/firewallfalcons/FirewallFalcon-Manager/releases")
+    local releases_json=$(curl -s "https://api.github.com/repos/kingfreenets/kingfreenet-Manager/releases")
     if [[ -z "$releases_json" || "$releases_json" == "[]" ]]; then
         echo -e "${C_RED}❌ Error: Could not fetch releases. Check internet or API limits.${C_RESET}"
         return
@@ -1588,7 +1588,7 @@ install_falcon_proxy() {
     fi
     
     # Construct download URL based on selected version
-    local download_url="https://github.com/firewallfalcons/FirewallFalcon-Manager/releases/download/$SELECTED_VERSION/$binary_name"
+    local download_url="https://github.com/kingfreenets/kingfreenet-Manager/releases/download/$SELECTED_VERSION/$binary_name"
 
     echo -e "\n${C_GREEN}📥 Downloading Falcon Proxy $SELECTED_VERSION ($binary_name)...${C_RESET}"
     wget -q --show-progress -O "$FALCONPROXY_BINARY" "$download_url"
@@ -1902,7 +1902,7 @@ install_nginx_proxy() {
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout "$SSL_KEY" \
         -out "$SSL_CERT" \
-        -subj "/CN=firewallfalcon.proxy" >/dev/null 2>&1 || { echo -e "${C_RED}❌ Failed to generate SSL certificate.${C_RESET}"; return; }
+        -subj "/CN=kingfreenet.proxy" >/dev/null 2>&1 || { echo -e "${C_RED}❌ Failed to generate SSL certificate.${C_RESET}"; return; }
     echo -e "\n${C_GREEN}📝 Applying Nginx reverse proxy configuration...${C_RESET}"
     mv "$NGINX_CONFIG_FILE" "${NGINX_CONFIG_FILE}.bak" 2>/dev/null
     
@@ -2235,7 +2235,7 @@ show_banner() {
     
     clear
     echo
-    echo -e "${C_TITLE}   FirewallFalcon Manager ${C_RESET}${C_DIM}| v3.5.0 Premium Edition${C_RESET}"
+    echo -e "${C_TITLE}   kingfreenet Manager ${C_RESET}${C_DIM}| v3.5.0 Premium Edition${C_RESET}"
     echo -e "${C_BLUE}   ─────────────────────────────────────────────────────────${C_RESET}"
     printf "   ${C_GRAY}%-10s${C_RESET} %-20s ${C_GRAY}|${C_RESET} %s\n" "OS" "$os_name" "Uptime: $up_time"
     printf "   ${C_GRAY}%-10s${C_RESET} %-20s ${C_GRAY}|${C_RESET} %s\n" "Memory" "${ram_usage}% Used" "Online Sessions: ${C_WHITE}${online_users}${C_RESET}"
@@ -2326,7 +2326,7 @@ install_dt_proxy_full() {
     echo "This will download and run the prerequisite mod installer."
     read -p "👉 Press [Enter] to continue or [Ctrl+C] to cancel."
 
-    if curl -sL https://raw.githubusercontent.com/firewallfalcons/ProxyMods/main/install.sh | bash; then
+    if curl -sL https://raw.githubusercontent.com/kingfreenets/ProxyMods/main/install.sh | bash; then
         echo -e "\n${C_GREEN}✅ DT Tunnel Mod installed successfully.${C_RESET}"
     else
         echo -e "\n${C_RED}❌ ERROR: DT Tunnel Mod installation failed. Aborting.${C_RESET}"
@@ -2337,7 +2337,7 @@ install_dt_proxy_full() {
     echo "This will download and run the main DT Tunnel proxy installer."
     read -p "👉 Press [Enter] to continue or [Ctrl+C] to cancel."
 
-    if bash <(curl -fsSL https://raw.githubusercontent.com/firewallfalcons/ProxyDT-Go-Releases/main/install.sh); then
+    if bash <(curl -fsSL https://raw.githubusercontent.com/kingfreenets/ProxyDT-Go-Releases/main/install.sh); then
         echo -e "\n${C_GREEN}✅ DT Tunnel Proxy installed successfully.${C_RESET}"
         echo -e "You can now manage it from the DT Proxy Management menu."
     else
@@ -2434,8 +2434,8 @@ uninstall_script() {
     echo -e "\n${C_BLUE}--- 💥 Starting Uninstallation 💥 ---${C_RESET}"
     
     echo -e "\n${C_BLUE}🗑️ Removing active limiter service...${C_RESET}"
-    systemctl stop firewallfalcon-limiter &>/dev/null
-    systemctl disable firewallfalcon-limiter &>/dev/null
+    systemctl stop kingfreenet-limiter &>/dev/null
+    systemctl disable kingfreenet-limiter &>/dev/null
     rm -f "$LIMITER_SERVICE"
     rm -f "$LIMITER_SCRIPT"
     
